@@ -165,3 +165,6 @@ if "__main__" == __name__:
         print("Empty values exist in the DataFrame.")
     else:
         print("No empty values in the DataFrame.")
+
+    # Use to save as a csv
+    # df.to_csv('../datasets/clean_train.csv', index=False, header=True)
