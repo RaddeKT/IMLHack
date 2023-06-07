@@ -1,7 +1,7 @@
 import pandas as pd
 
 # Read the data from the csv file
-bookings_df = pd.read_csv('agoda_cancellation_train.csv')
+bookings_df = pd.read_csv('datasets/agoda_cancellation_train.csv')
 
 
 def get_first_last_name(df, col_name):
