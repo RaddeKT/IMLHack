@@ -1,4 +1,5 @@
 import pandas as pd
+from sklearn.model_selection import train_test_split
 
 BOOLEAN_COLUMNS = ['guest_is_not_the_customer',
                    'guest_is_not_the_customer',
@@ -195,3 +196,8 @@ if "__main__" == __name__:
         print("Empty values exist in the DataFrame.")
     else:
         print("No empty values in the DataFrame.")
+
+    train_df, test_df = train_test_split(df, test_size=0.2)
+    # Use to save as a csv
+    train_df.to_csv('../datasets/clean_train.csv', index=False, header=True)
+    test_df.to_csv('../datasets/clean_test.csv', index=False, header=True)
