@@ -1,5 +1,6 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OneHotEncoder
 
 BOOLEAN_COLUMNS = ['guest_is_not_the_customer',
                    'guest_is_not_the_customer',
@@ -31,10 +32,15 @@ CATEGORY_COLUMNS_TO_EXPAND = [col for col in CATEGORY_COLUMNS if
 
 def categorize_columns(df, column_names):
     final_df = df.copy()
-    for column_name in column_names:
-        # convert to category using get_dummies
-        final_df = pd.get_dummies(final_df, columns=[column_name], prefix=f'cat_{column_name}', prefix_sep='_')
+    final_df[column_names] = final_df[column_names].astype('str')
+    encoder = OneHotEncoder(max_categories=4, sparse_output=False)
+    data = encoder.fit_transform(final_df[column_names])
+    final_df[encoder.get_feature_names_out()] = pd.DataFrame(data, columns=encoder.get_feature_names_out())
+    # for column_name in column_names:
+    #     # convert to category using get_dummies
+    #     final_df = pd.get_dummies(final_df, columns=[column_name], prefix=f'cat_{column_name}', prefix_sep='_')
 
+    final_df = final_df.drop(column_names, axis=1)
     return final_df
 
 
@@ -147,7 +153,7 @@ NUMERICAL_COLUMNS = ['no_of_adults',
 
 
 def get_preprocessed_data(df, task=1, is_test=False):
-    # df = pd.read_csv('../datasets/agoda_cancellation_train.csv')
+    df = pd.read_csv('../datasets/agoda_cancellation_train.csv')
 
     if task == 1 and not is_test:
         df = df.pipe(convert_cancellation_date_to_did_cancel)
