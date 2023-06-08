@@ -3,14 +3,29 @@ import numpy as np
 import plotly.express as px
 import sklearn
 import sys
-
-df=pd.read_csv('datasets/agoda_cancellation_train.csv')
-# print(df[filter(lambda x:x.split('_')[0]=='hotel',df.columns,)])
+import holidays
 
 
-df=df.select_dtypes(float)
-dd=df.corr().unstack().abs().sort_values()
-print(dd[dd<1])
+def days_before_holiday(date_col : pd.Series,country:str):
+    days_before=[]
+    d = pd.to_datetime(date_col)
+    holidays_s = pd.Series(holidays.country_holidays(country, years=list(d.dt.year.unique())).keys())
+    column_as_dates = d.dt.date
+    for date in column_as_dates:
+        diff = holidays_s - date
+        days_before.append(diff[diff > pd.to_timedelta('1s')].min().days)
+    return days_before
+
+
+
+
+df=pd.read_csv(r'C:\Users\tomer\Desktop\IMLHACK\1\code\datasets\agoda_cancellation_train.csv')
+d=pd.to_datetime(df['booking_datetime'])
+print(days_before_holiday(df['booking_datetime'],'US'))
+# print(pd.DataFrame({'A':H,'B':dd[0],'C':H-dd[0]}))
+# df=df.select_dtypes(float)
+# dd=df.corr().unstack().abs().sort_values()
+# print(dd[dd<1])
 
 class Explore():
     def __init__(self,df : pd.DataFrame,result_name : str):
