@@ -22,7 +22,7 @@ CATEGORY_COLUMNS = ['hotel_country_code', 'accommadation_type_name', 'customer_n
 CATEGORY_COLUMNS_WITH_TOO_MANY_UNIQUE_VALUES = ['hotel_id', 'hotel_area_code',
                                                 'hotel_city_code']
 DROP_BECAUSE_MANY_UNFILLED_ROWS = ['hotel_brand_code', 'hotel_chain_code']
-IRRELEVANT_COLUMNS = ['h_booking_id']
+IRRELEVANT_COLUMNS = ['h_booking_id', 'h_customer_id']
 DROPPED_COLUMNS = CATEGORY_COLUMNS_WITH_TOO_MANY_UNIQUE_VALUES + DROP_BECAUSE_MANY_UNFILLED_ROWS
 
 CATEGORY_COLUMNS_TO_EXPAND = [col for col in CATEGORY_COLUMNS if
@@ -33,7 +33,7 @@ def categorize_columns(df, column_names):
     final_df = df.copy()
     for column_name in column_names:
         # convert to category using get_dummies
-        final_df = pd.get_dummies(final_df, columns=[column_name], prefix='cat', prefix_sep='_')
+        final_df = pd.get_dummies(final_df, columns=[column_name], prefix=f'cat_{column_name}', prefix_sep='_')
 
     return final_df
 
@@ -41,23 +41,34 @@ def categorize_columns(df, column_names):
 def parse_cancellation_policy(df):
     final_df = df.copy()
 
-    # Create columns to store parsed information
-    final_df['policy_days_before_checkin'] = final_df['cancellation_policy_code'].str.extract(r'(\d+)(?=D)').astype(
-        float)
-    # if no days count, it's 0:
-    final_df['policy_days_before_checkin'] = final_df['policy_days_before_checkin'].fillna(0)
-
-    final_df['policy_penalty_percents'] = final_df['cancellation_policy_code'].str.extract(
-        r'(\d+)(?=P)').astype(float) / 100
-    final_df['policy_penalty_nights'] = final_df['cancellation_policy_code'].str.extract(r'(\d+)(?=N)').astype(
-        float)
-    # now calculate percents to be as nights:
     final_df['total_nights'] = (final_df['checkout_date'] - final_df['checkin_date']).dt.days
-    final_df['policy_penalty_nights'] = final_df['policy_penalty_nights'].fillna(
-        final_df['policy_penalty_percents'] * final_df[
-            'total_nights'])
 
-    final_df = final_df.drop(['policy_penalty_percents'], axis=1)
+    policies = final_df['cancellation_policy_code'].str.split('_', expand=True)
+
+    for policy in policies.columns:
+        final_df[f'policy{policy}_days_before_checkin'] = policies[policy].str.extract(r'(\d+)(?=D)').astype(
+            float)
+        # if no days count, it's 0:
+        final_df[f'policy{policy}_days_before_checkin'] = final_df[f'policy{policy}_days_before_checkin'].fillna(0)
+
+        final_df[f'policy{policy}_penalty_percents'] = policies[policy].str.extract(
+            r'(\d+)(?=P)').astype(float) / 100
+        final_df[f'policy{policy}_penalty_nights'] = policies[policy].str.extract(r'(\d+)(?=N)').astype(
+            float)
+
+        # now calculate percents to be as nights:
+        final_df[f'policy{policy}_penalty_nights'] = final_df[f'policy{policy}_penalty_nights'].fillna(
+            final_df[f'policy{policy}_penalty_percents'] * final_df[
+                'total_nights'])
+
+        # finaly if no policy, get the previous one:
+        if policy > 0:
+            final_df[f'policy{policy}_penalty_nights'] = final_df[f'policy{policy}_penalty_nights'].fillna(
+                final_df[f'policy{policy - 1}_penalty_nights'])
+
+        final_df = final_df.drop([f'policy{policy}_penalty_percents'], axis=1)
+
+    final_df = final_df.drop(['cancellation_policy_code'], axis=1)
 
     return final_df
 
@@ -135,8 +146,8 @@ NUMERICAL_COLUMNS = ['no_of_adults',
                      'no_of_room']
 
 
-def get_preprocessed_data(task=1, is_test=False):
-    df = pd.read_csv('../datasets/agoda_cancellation_train.csv')
+def get_preprocessed_data(df, task=1, is_test=False):
+    # df = pd.read_csv('../datasets/agoda_cancellation_train.csv')
 
     if task == 1 and not is_test:
         df = df.pipe(convert_cancellation_date_to_did_cancel)
@@ -172,7 +183,9 @@ def get_preprocessed_data(task=1, is_test=False):
 
     df = df.pipe(parse_cancellation_policy)
 
-    df = df.drop(DATE_COLUMNS + DATETIME_COLUMNS + ['cancellation_datetime'], axis=1)
+    df = df.drop(DATE_COLUMNS + DATETIME_COLUMNS, axis=1)
+    if not is_test:
+        df = df.drop(['cancellation_datetime'], axis=1)
 
     df = df.fillna(df.mean())
 
